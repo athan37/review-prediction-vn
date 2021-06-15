@@ -31,25 +31,32 @@ class Predictor:
         os.chdir(current_dir)
         return new_text
 
-    def predict(self, reviews, probability=True):
-        if len(reviews) >= self.min_length:
+    def predict(self, review, probability=False):
+        if len(review) >= self.min_length:
             dict_   = {"-1": "negative", "1": "positive", "0": "neutral" }
             print("=========================Tokenizing=================================")
             if self.is_tokenize:
-                reviews = self.tokenize(reviews)
+                review = self.tokenize(review)
 
             print("=========================Predicting=================================")
-            [pred]   = self.predictor.predict_proba(self.preprocessor.transform([reviews]))
+            [pred]   = self.predictor.predict_proba(self.preprocessor.transform([review]))
             import numpy as np
             max_idx  = np.argmax(pred)
             pred_label      = self.predictor.classes_[max_idx]
             pred_proba      = round(pred[max_idx] * 100, 1) #Convert to %
             if probability:
-                return f"{dict_[str(pred_label)]} : {pred_proba}%"
+                return dict_[str(pred_label)], pred_proba
             else:
-                return f"{dict_[str(pred_label)]}"
+                return dict_[str(pred_label)]
         else:
             return "Text is too short"
+
+    def predictAll(self, reviews = [], probability=False):
+        results = [(index, *self.predict(review, probability))
+        if probability else self.predict(review) 
+        for index, review in enumerate(reviews)]
+        return results
+
 
 # #Testing
 # if __name__ == "__main__":
