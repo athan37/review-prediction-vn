@@ -1,6 +1,6 @@
  # -*- coding: utf-8 -*-
 class Predictor:
-    def __init__(self, min_length=50):
+    def __init__(self, min_length=50, is_tokenize=False):
         #Import here as it doesn't need these outside this class
         import joblib
         from sklearn.linear_model import LogisticRegression
@@ -10,6 +10,7 @@ class Predictor:
         self.predictor    = joblib.load("model.pkl")
         self.preprocessor = joblib.load("preprocess.pkl")
         self.min_length   = min_length
+        self.is_tokenize  = is_tokenize
 
     def tokenize(self, text):
         #Assume that we are in the directory outside the tokenizer
@@ -34,7 +35,8 @@ class Predictor:
         if len(reviews) >= self.min_length:
             dict_   = {"-1": "negative", "1": "positive", "0": "neutral" }
             print("=========================Tokenizing=================================")
-            reviews = self.tokenize(reviews)
+            if self.is_tokenize:
+                reviews = self.tokenize(reviews)
 
             print("=========================Predicting=================================")
             [pred]   = self.predictor.predict_proba(self.preprocessor.transform([reviews]))
