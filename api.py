@@ -56,7 +56,58 @@ class Prediction(Resource):
         return "Something wrong", 400
 
     def get(self):
-        return render_template("prediction/index.html")
+        return {"Instruction" : "Send POST request to this to get result. If predicting multiple comments, pass in summaries and contents. Destination of data is json",
+                "Params" : {
+                    "summary" : "String: The summary of the review if extists",
+                    "content" : "String: The content of the review",
+                    "percentage" : "Boolean: Percentage of the prediction",
+                    "summaries" : "List(String): The list of summaries of the review if extists",
+                    "contents" : "List(String): The list of contents of the review",
+                },
+                "Returns" : {
+                    "If params has summary and content" : {
+                        "If percentage is not provided" : "The prediction, either positive, neutral, or negative",
+                        "If percentage is provided" : "The prediction with the percentage"
+                    },
+                    "If params has summaries and contents" : {
+                        "If percentage is not provided" : "The predictions, either positive, neutral, or negative",
+                        "If percentage is provided" : "The predictions with the percentage"
+                    }
+                },
+                "Examples in python" : [
+                    {
+                        "Request" :
+                        {
+                            "1. Import requests library" : "import requests",
+                            "2. Define the url" : "https://review-prediction-vn.herokuapp.com/prediction",
+                            "3. Define the data" : {"data" : {"summary" : "hey", "content": "that\'s great", "percentage": True}},
+                            "4. Post the data to json destination" : 'response = requests.post(url=url, json=data)',
+                            "5. Get the result" : 'response.text'
+                        },
+                        "Response" : {
+                            "result"     : 'positive',
+                            'probability': 94.5
+                            }
+                    },
+                    {
+                        "Request" :
+                        {
+                            "1. Import requests library" : "import requests",
+                            "2. Define the url" : "https://review-prediction-vn.herokuapp.com/prediction",
+                            "3. Define a list of summaries and assign it to the variable summaries" : {
+                                    "summaries" : ["Hay", "Tốt"]
+                                },
+                            "4. Define a list of contents and assign it to the variable contents" : {
+                                    "contents" : ["Tốt thật đấy", "Ổn app"]
+                                },
+                            "5. Define the data" : {"data" : {"summaries" : "summaries", "contents": "contents"}},
+                            "6. Post the data to json destination" : 'response = requests.post(url=url, json=data)',
+                            "7. Get the result" : 'response.text'
+                        },
+                        "Response" : [[0, "positive"], [1, "positive"]]
+                    }
+                ]
+            }
 
 api.add_resource(Prediction, "/prediction", endpoint="prediction")
 
