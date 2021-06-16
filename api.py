@@ -1,34 +1,10 @@
-from flask import Flask
-from flask_restful import Resource, Api, reqparse, abort, marshal, fields
+from flask import Flask, redirect, url_for, render_template
+from flask_restful import Resource, Api, reqparse
 
 from main import Predictor
 
 app = Flask(__name__)
 api = Api(app)
-
-# reviews = [
-#     {
-#     "summary" : "Good",
-#     "content" : "Very good",
-#     "percentage": True
-#     },
-#     {
-#     "summary" : "Not Bad",
-#     "content" : "Sure good good",
-#     "percentage": False
-#     },
-#     {
-#     "summary" : "Hei, that's greate",
-#     "content" : "I rove it",
-#     "percentage": False
-#     },
-# ]
-#
-# reviewFields = {
-#     "summary": fields.String,
-#     "content": fields.String,
-#     "percentage": fields.Boolean,
-# }
 
 class Prediction(Resource):
     def __init__(self):
@@ -55,8 +31,7 @@ class Prediction(Resource):
             if "summaries" in args and args["contents"] is not None:
                 summaries = args["summaries"]
                 if len(contents) != len(summaries):
-                    print("Make sure the length of summaries and contents are equal")
-                    return 400 #Bad request
+                    return f"Make sure the length {len(summaries)} of summaries and length {len(contents)} of contents are equal", 400 #Bad request
 
                 reviews = [f"{summaries[i]} {contents[i]}" for i in range(len(contents))]
 
@@ -65,7 +40,7 @@ class Prediction(Resource):
                 return {"results" : results}, 201
         else:
             if args["content"] is None:
-                return 400
+                return "Please input content", 400
             text = args["content"]
             if "summary" in args and args["summary"] is not None:
                 text = f'{args["summary"]} {text}'
@@ -78,12 +53,17 @@ class Prediction(Resource):
                 result   = self.predictor.predict(text)
                 return {"result" : result}, 201
         #Definitely bad request
-        return 400
+        return "Something wrong", 400
 
     def get(self):
-        return "Post a review in this link to get prediction"
+        return render_template("prediction/index.html")
 
-api.add_resource(Prediction, "/prediction")
+api.add_resource(Prediction, "/prediction", endpoint="prediction")
+
+
+@app.route('/')
+def index():
+    return redirect(url_for("prediction"))
 
 if __name__ == "__main__":
   app.run()

@@ -53,7 +53,7 @@ class Predictor:
 
     def predictAll(self, reviews = [], probability=False):
         results = [(index, *self.predict(review, probability))
-        if probability else self.predict(review) 
+        if probability else (index, self.predict(review)) 
         for index, review in enumerate(reviews)]
         return results
 
