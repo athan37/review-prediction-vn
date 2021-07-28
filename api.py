@@ -1,7 +1,11 @@
 from flask import Flask, redirect, url_for, render_template
-from flask_restful import Resource, Api, reqparse
-
+from flask_restful import Resource, Api, reqparse, request, inputs
+import dateutil.parser as parser
+import datetime
+import pymongo
 from main import Predictor
+
+
 
 app = Flask(__name__)
 api = Api(app)
@@ -109,7 +113,135 @@ class Prediction(Resource):
                 ]
             }
 
+class Buzzs(Resource):
+    def __init__(self):
+        from pymongo import MongoClient
+        self.reqparse = reqparse.RequestParser()
+        self.reqparse.add_argument("appId",     type=str, required=True,  location="json", help="The appstore id of the app that you want to fetch reviews from")
+        self.reqparse.add_argument("page",      type=int, required=False, location="json", help="The page that contain the data. Default is 1")
+        self.reqparse.add_argument("perPage",   type=int, required=False, location="json", help="The page that contain the data. Default is 24")
+        self.reqparse.add_argument("fromDate",  type=str, required=False, location="json", help="The begin date as a string with format YYYY-mm-dd (Ex: '2021-07-28'), the default is all days from the past")
+        self.reqparse.add_argument("toDate",    type=str, required=False, location="json", help="The end date, YYYY-mm-dd (Ex: 2021-07-28) the default is today")
+        self.reqparse.add_argument("query",     type=inputs.regex('^.+:.+$'), required=False, location="json", help="Query separated by a colon (:), only applicable to text field [appName, sentiment]: example: 'sentiment: negative' ")
+        #Connect with mongo
+        self.client     = MongoClient("mongodb+srv://user1234:user1234@cluster0.zmdnb.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
+        self.db         = self.client["main"]
+        self.collection = self.db.reviews
+
+    def post(self):
+        args = self.reqparse.parse_args()
+        appId    = args["appId"]
+        page     = args["page"]
+        perPage  = args["perPage"]
+        fromDate = args["fromDate"]
+        toDate   = args["toDate"]
+        addQuery = args["query"]
+
+        data = {
+            "total"  : 0,
+            "results": []
+        }
+
+        query      = {}
+        queryDate  = {}
+        page    = page if page else 1
+        perPage = perPage if perPage else 24
+        toDate  = toDate  if toDate else datetime.datetime.now().isoformat() #default is today
+
+        query["appId"] = appId
+
+
+        if fromDate:
+            queryDate  = {
+                '$gte': parser.parse(fromDate).isoformat()
+            }
+
+        queryDate = {
+            **queryDate,
+            '$lt': parser.parse(toDate).isoformat()
+        }
+
+
+        query["publishDate"] = queryDate
+
+        if addQuery:
+            [key, val] = addQuery.split(":")
+            query = {
+                **query,
+                f"{key.strip()}" : val.strip()
+            }
+
+        cursor = self.collection.find(query)
+
+        cursor.sort("publishDate", pymongo.DESCENDING)
+
+        cursor = cursor.skip((page - 1) * perPage  if page > 0 else 0);
+
+        cursor.limit(perPage)
+
+        data["total"]   = cursor.count()
+        data["results"] = list(cursor)
+
+        return data, 200
+
+
+class Apps(Resource):
+    def __init__(self):
+        from pymongo import MongoClient
+        self.reqparse = reqparse.RequestParser()
+        self.reqparse.add_argument("keyword", type=str, required=True,  location="json", help="The keyword that you remember from the app: Ex: BIDV")
+        #Connect with mongo
+        self.client     = MongoClient("mongodb+srv://user1234:user1234@cluster0.zmdnb.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
+        self.db         = self.client["main"]
+        self.collection = self.db.reviews
+
+    def post(self):
+        args    = self.reqparse.parse_args()
+        keyword = args["keyword"]
+        try:
+            res = self.collection.aggregate([{
+                '$search': {
+                  'index': 'text',
+                  'text': {
+                    'query': keyword,
+                    'path': {
+                      'wildcard': '*'
+                    }
+                  }
+                }
+              },
+            ]).next()
+            return f'App name: {res["appName"]} - appId: {res["appId"]}'
+        except Exception as e:
+            return "There is no match for this search"
+
+    def get(self):
+        cursor = self.collection.aggregate([
+            {
+                '$project': {
+                    'appName': 1,
+                    'appId': 1
+                }
+            }, {
+                '$group': {
+                    '_id': {
+                        'appId': '$appId',
+                        'appName': '$appName'
+                    }
+                }
+            }
+        ])
+
+        unwind = lambda doc : doc["_id"]
+
+        res = [unwind(doc) for doc in cursor]
+
+        return res, 200
+
+
 api.add_resource(Prediction, "/prediction", endpoint="prediction")
+api.add_resource(Buzzs, "/buzzs", endpoint="buzzs")
+api.add_resource(Apps, "/search", endpoint="search")
 
 
 @app.route('/')
